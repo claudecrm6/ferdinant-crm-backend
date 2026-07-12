@@ -137,4 +137,4 @@ TELEGRAM_ADMIN_CHAT_IDS = [
     if cid.strip()
 ]
 
-RATELIMIT_VIEW = 'api.views.ratelimited_error'`
+RATELIMIT_VIEW = 'api.views.ratelimited_error'
