@@ -25,9 +25,12 @@ def get_last_error():
     return _last_error["message"]
 
 
-def send_telegram_message(text, chat_id=None):
+def send_telegram_message(text, chat_id=None, message_thread_id=None):
     """
     Telegramga oddiy matnli xabar yuboradi.
+    `message_thread_id` berilsa, xabar guruhning umumiy chatiga emas,
+    balki forum-mavzular (topics) yoqilgan superguruhdagi aynan shu
+    mavzu/bo'lim (topic) ichiga yuboriladi.
     Xato yuz bersa, dasturni to'xtatmasdan False qaytaradi, xatoni logga
     yozadi va get_last_error() orqali olish uchun saqlab qo'yadi.
     """
@@ -40,11 +43,14 @@ def send_telegram_message(text, chat_id=None):
         return False
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = json.dumps({
+    body = {
         "chat_id": target_chat_id,
         "text": text,
         "parse_mode": "HTML",
-    }).encode("utf-8")
+    }
+    if message_thread_id:
+        body["message_thread_id"] = message_thread_id
+    payload = json.dumps(body).encode("utf-8")
 
     request = urllib.request.Request(
         url,
@@ -102,12 +108,17 @@ def send_to_admins(text):
 # faqat TELEGRAM_ADMIN_CHAT_IDS'ga boradi (send_activity_notice orqali).
 PAYMENT_GROUP_CHAT_ID = "-1001827066150"
 
+# Shu guruh ichidagi "To'lovlar" mavzusi (forum topic).
+# https://t.me/c/1827066150/2595 havoladagi oxirgi raqam — topic ID.
+PAYMENT_GROUP_TOPIC_ID = 2595
+
 
 def send_payment_group_notice(username, student_name, amount):
     """
     To'lov kiritilganda, faqat shu event uchun, yuqoridagi
-    PAYMENT_GROUP_CHAT_ID guruhiga xabar yuboradi. Shablon
-    send_activity_notice bilan bir xil, lekin manzil boshqa.
+    PAYMENT_GROUP_CHAT_ID guruhining PAYMENT_GROUP_TOPIC_ID mavzusiga
+    xabar yuboradi (umumiy chatga emas). Shablon send_activity_notice
+    bilan bir xil, lekin manzil boshqa.
     """
     text = (
         "🔵 <b>To'lov kiritildi</b>\n\n"
@@ -116,7 +127,11 @@ def send_payment_group_notice(username, student_name, amount):
         f"💵 Summa: {format_money(amount)} so'm\n"
         f"🕒 Vaqt: {timezone_now_str()}"
     )
-    return send_telegram_message(text, chat_id=PAYMENT_GROUP_CHAT_ID)
+    return send_telegram_message(
+        text,
+        chat_id=PAYMENT_GROUP_CHAT_ID,
+        message_thread_id=PAYMENT_GROUP_TOPIC_ID,
+    )
 
 def send_activity_notice(username, title, details=""):
     """
