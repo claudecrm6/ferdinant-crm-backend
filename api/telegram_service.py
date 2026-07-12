@@ -100,7 +100,7 @@ def send_to_admins(text):
 # Faqat to'lov eventi uchun ishlatiladi — boshqa barcha xabarlar
 # (guruh/kurs/o'quvchi qo'shish, login/logout va h.k.) eskicha
 # faqat TELEGRAM_ADMIN_CHAT_IDS'ga boradi (send_activity_notice orqali).
-PAYMENT_GROUP_CHAT_ID = "1827066150"
+PAYMENT_GROUP_CHAT_ID = "-1001827066150"
 
 
 def send_payment_group_notice(username, student_name, amount):
