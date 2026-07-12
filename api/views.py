@@ -29,6 +29,20 @@ def notify_activity(user, title, details=""):
         daemon=True,
     ).start()
 
+def notify_payment_group(user, student_name, amount):
+    """
+    Faqat to'lov kiritilganda ishlaydi: telegram_service.send_payment_group_notice'ni
+    fon oqimida chaqirib, xabarni PAYMENT_GROUP_CHAT_ID guruhiga yuboradi.
+    Bu notify_activity'dan mustaqil — admin chat'lariga ketadigan xabarga
+    ta'sir qilmaydi, faqat qo'shimcha ravishda guruhga ham yuboradi.
+    """
+    username = user.username if user else "Noma'lum"
+    threading.Thread(
+        target=telegram_service.send_payment_group_notice,
+        args=(username, student_name, amount),
+        daemon=True,
+    ).start()
+
 
 # ===================== OYLIK RESET =====================
 def ensure_monthly_reset():
@@ -182,6 +196,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
             "To'lov kiritildi",
             f"🧑\u200d🎓 O'quvchi: {student_name}\n💵 Summa: {telegram_service.format_money(payment.amount)} so'm",
         )
+        notify_payment_group(user, student_name, payment.amount)
 
     def update(self, request, *args, **kwargs):
         # Frontend to'lovni tahrirlashda barcha maydonlarni (masalan owner,

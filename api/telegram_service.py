@@ -96,6 +96,27 @@ def send_to_admins(text):
             ok = True
     return ok
 
+# To'lov kiritilganda xabar boradigan ALOHIDA guruh chat'i.
+# Faqat to'lov eventi uchun ishlatiladi — boshqa barcha xabarlar
+# (guruh/kurs/o'quvchi qo'shish, login/logout va h.k.) eskicha
+# faqat TELEGRAM_ADMIN_CHAT_IDS'ga boradi (send_activity_notice orqali).
+PAYMENT_GROUP_CHAT_ID = "1827066150"
+
+
+def send_payment_group_notice(username, student_name, amount):
+    """
+    To'lov kiritilganda, faqat shu event uchun, yuqoridagi
+    PAYMENT_GROUP_CHAT_ID guruhiga xabar yuboradi. Shablon
+    send_activity_notice bilan bir xil, lekin manzil boshqa.
+    """
+    text = (
+        "🔵 <b>To'lov kiritildi</b>\n\n"
+        f"👤 Foydalanuvchi: <b>{username}</b>\n"
+        f"🧑‍🎓 O'quvchi: {student_name}\n"
+        f"💵 Summa: {format_money(amount)} so'm\n"
+        f"🕒 Vaqt: {timezone_now_str()}"
+    )
+    return send_telegram_message(text, chat_id=PAYMENT_GROUP_CHAT_ID)
 
 def send_activity_notice(username, title, details=""):
     """
