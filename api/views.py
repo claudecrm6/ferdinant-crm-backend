@@ -947,7 +947,17 @@ def telegram_send_certificate(request):
         return Response({'error': "Fayl hajmi 5MB dan katta bo'lmasligi kerak"}, status=400)
 
     caption = f"🎓 Sertifikat: {name}\n📘 Kurs: {course}"
-    ok = telegram_service.send_document_to_admins(
-        file.read(), file.name or 'sertifikat.pdf', caption
-    )
-    return Response({'ok': ok})
+    file_bytes = file.read()
+    filename = file.name or 'sertifikat.pdf'
+
+    # Telegram'ga yuborish tarmoq sekin bo'lganda 20+ soniya cho'zilishi mumkin
+    # (ayniqsa 2 ta admin bo'lsa). Buni asosiy so'rovni bloklamasligi uchun
+    # fon oqimida (background thread) bajaramiz — foydalanuvchi darhol javob
+    # oladi va sahifa "qotib qolmaydi".
+    threading.Thread(
+        target=telegram_service.send_document_to_admins,
+        args=(file_bytes, filename, caption),
+        daemon=True,
+    ).start()
+
+    return Response({'ok': True})

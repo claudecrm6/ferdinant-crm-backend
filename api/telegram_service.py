@@ -434,5 +434,11 @@ def send_document_to_admins(file_bytes, filename, caption=""):
         except urllib.error.URLError as exc:
             _last_error["message"] = f"Ulanish xatosi: {exc.reason}"
             print(f"[telegram] Hujjat yuborishda xato: {exc}")
+        except Exception as exc:
+            # socket.timeout, ssl xatolari va boshqa kutilmagan xatoliklar ham
+            # shu yerda ushlanadi — aks holda ular loopni to'xtatib, keyingi
+            # chat_id'ga (masalan ikkinchi admin'ga) umuman yuborilmay qolardi.
+            _last_error["message"] = f"Kutilmagan xato ({chat_id}): {exc}"
+            print(f"[telegram] Hujjat yuborishda kutilmagan xato: {exc}")
 
     return ok_any
