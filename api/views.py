@@ -44,11 +44,30 @@ def notify_payment_group(user, student_name, amount):
     ).start()
 
 
+def get_student_monthly_price(student):
+    """
+    O'quvchining OYLIK (bir oylik) to'lov summasini aniqlaydi:
+    - Agar o'quvchida chegirma yoqilgan bo'lsa (has_discount=True) va
+      individual narx (discounted_price) kiritilgan bo'lsa -> o'sha
+      individual narx qaytariladi, guruh/kurs narxi qanday o'zgarishidan
+      qat'i nazar.
+    - Aks holda, avvalgidek, guruhning joriy narxi ishlatiladi (guruh
+      yo'q bo'lsa, o'quvchining mavjud original_debt qiymati fallback
+      sifatida ishlatiladi).
+    """
+    if student.has_discount and student.discounted_price is not None:
+        return student.discounted_price
+    if student.group and student.group.price is not None:
+        return student.group.price
+    return student.original_debt or 0
+
+
 # ===================== OYLIK RESET =====================
 def ensure_monthly_reset():
     """
     Yangi oy boshlanganda:
-    - Oldingi oy TO'LIQ to'langan bo'lsa -> joriy oy narxiga (guruh narxi) qarz ochiladi.
+    - Oldingi oy TO'LIQ to'langan bo'lsa -> joriy oy narxiga (guruh narxi,
+      yoki chegirmali o'quvchi uchun uning individual narxi) qarz ochiladi.
     - Oldingi oyda TO'LANMAGAN qarz qolgan bo'lsa -> u YO'QOLMAYDI,
       joriy oy narxiga QO'SHILIB, yangi original_debt hosil qilinadi.
     """
@@ -57,10 +76,7 @@ def ensure_monthly_reset():
 
     for student in stale:
         unpaid_carryover = student.debt_amount or 0
-        if student.group and student.group.price is not None:
-            monthly_price = student.group.price
-        else:
-            monthly_price = student.original_debt or 0
+        monthly_price = get_student_monthly_price(student)
 
         student.original_debt = unpaid_carryover + monthly_price
         student.paid_amount = 0
@@ -276,6 +292,8 @@ class TrashViewSet(viewsets.ModelViewSet):
                 debt_amount=student_data.get('debt_amount', 500000),
                 paid_amount=student_data.get('paid_amount', 0),
                 payment_status=student_data.get('payment_status', 'debt'),
+                has_discount=student_data.get('has_discount', False),
+                discounted_price=student_data.get('discounted_price'),
             )
             if group:
                 student.group = group

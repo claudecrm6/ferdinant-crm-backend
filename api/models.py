@@ -50,6 +50,14 @@ class Student(models.Model):
     period = models.CharField(max_length=7, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # ===== CHEGIRMA (INDIVIDUAL OYLIK NARX) =====
+    # has_discount=True bo'lsa, bu o'quvchi uchun oylik to'lov guruh/kurs
+    # narxidan emas, balki discounted_price maydonidagi individual summadan
+    # olinadi. Bu qiymat guruh narxi keyinchalik o'zgarsa ham o'zgarmaydi va
+    # har oy (ensure_monthly_reset) shu summa asosida qarzdorlik ochiladi.
+    has_discount = models.BooleanField(default=False)
+    discounted_price = models.IntegerField(null=True, blank=True)
+
     def save(self, *args, **kwargs):
 
         self.debt_amount = max(
