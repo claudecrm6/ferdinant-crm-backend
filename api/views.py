@@ -14,6 +14,7 @@ from django_ratelimit.decorators import ratelimit
 from .models import Group, Course, Student, Payment, Trash, CRMUser, CRMSession
 from .serializers import GroupSerializer, CourseSerializer, StudentSerializer, PaymentSerializer, TrashSerializer, CRMUserSerializer
 from . import telegram_service
+from . import test_access
 
 
 
@@ -946,16 +947,82 @@ def ratelimited_error(request, exception):
     )
 
 
+@api_view(['POST'])
+@ratelimit(key='ip', rate='30/m', block=True)
+def test_check_access(request):
+    """
+    Testga kirishdan oldin MAJBURIY to'lov tekshiruvi (backendda).
+
+    Kirish: {student_id, test_type: "oraliq" | "yakuniy" | ""}
+    Chiqish: {allowed, code, message, details, access_token?}
+    Ruxsat berilsa qisqa muddatli imzolangan access_token qaytariladi; test
+    natijasi faqat shu token bilan qabul qilinadi.
+    """
+    user = get_user_from_token(request)
+    if not user:
+        return Response({'allowed': False, 'code': 'unauthorized',
+                         'message': "Avval tizimga kiring."}, status=401)
+
+    test_type = str(request.data.get('test_type') or '').strip().lower()
+    if test_type not in test_access.VALID_TEST_TYPES:
+        return Response({'allowed': False, 'code': 'bad_test_type',
+                         'message': "Test turi noto'g'ri."}, status=400)
+
+    try:
+        student_id = int(request.data.get('student_id'))
+    except (TypeError, ValueError):
+        return Response({'allowed': False, 'code': 'bad_student',
+                         'message': "O'quvchi tanlanmagan."}, status=400)
+
+    # Yangi oy boshlangan bo'lsa, qarzdorlik avval yangilanadi.
+    ensure_monthly_reset()
+
+    student = Student.objects.select_related('group').filter(pk=student_id).first()
+    if not student:
+        return Response({'allowed': False, 'code': 'student_not_found',
+                         'message': "O'quvchi topilmadi."}, status=404)
+    if not is_admin(user) and (not student.group or student.group.user_id != user.id):
+        return Response({'allowed': False, 'code': 'forbidden',
+                         'message': "Bu o'quvchi sizga tegishli emas."}, status=403)
+
+    result = test_access.evaluate_access(student, test_type)
+    if result['allowed']:
+        result['access_token'] = test_access.make_access_token(student, test_type, user)
+        return Response(result)
+    return Response(result, status=403)
+
+
 # ===================== TELEGRAM — TEST NATIJASI / SERTIFIKAT (OCHIQ, TOKENSIZ) =====================
-# Bu ikki endpoint token talab qilmaydi (test/sertifikat sahifasi login qilinmagan
-# foydalanuvchilar uchun ham ochiq), shuning uchun suiiste'mol qilinmasligi uchun
-# qat'iy rate-limit va hajm cheklovlari qo'yilgan. Telegram bot tokeni bu yerda ham
-# faqat serverda (settings.TELEGRAM_BOT_TOKEN) ishlatiladi — frontendga chiqmaydi.
+# Bu ikki endpoint login cookie'sini talab qilmaydi (test/sertifikat sahifasi login
+# qilinmagan foydalanuvchilar uchun ham ochiq), shuning uchun suiiste'mol qilinmasligi
+# uchun qat'iy rate-limit va hajm cheklovlari qo'yilgan. Telegram bot tokeni bu yerda
+# ham faqat serverda (settings.TELEGRAM_BOT_TOKEN) ishlatiladi — frontendga chiqmaydi.
+# Test natijasi esa faqat to'lov tekshiruvidan o'tgan (access_token) so'rovlar uchun
+# qabul qilinadi.
 
 @api_view(['POST'])
 @ratelimit(key='ip', rate='10/m', block=True)
 def telegram_send_quiz_result(request):
-    """Test natijasini adminlarga yuboradi (frontenddagi eski to'g'ridan-to'g'ri chaqiruv o'rniga)."""
+    """Test natijasini adminlarga yuboradi. To'lov tekshiruvi tokeni majburiy."""
+    payload = test_access.read_access_token(request.data.get('access_token'))
+    if not payload:
+        return Response({
+            'ok': False, 'code': 'access_denied',
+            'error': "Testga kirish ruxsati yo'q yoki muddati tugagan. "
+                     "To'lov holatini tekshirib, testni qaytadan boshlang.",
+        }, status=403)
+
+    # Natija yuborilayotgan paytda ham haqiqiy to'lov holati qayta tekshiriladi.
+    ensure_monthly_reset()
+    student = Student.objects.select_related('group').filter(pk=payload.get('s')).first()
+    if not student:
+        return Response({'ok': False, 'code': 'student_not_found',
+                         'error': "O'quvchi topilmadi."}, status=404)
+    result = test_access.evaluate_access(student, payload.get('t', ''))
+    if not result['allowed']:
+        return Response({'ok': False, 'code': result['code'],
+                         'error': result['message']}, status=403)
+
     test_name = str(request.data.get('test_name', 'Test'))[:100]
     name = str(request.data.get('name', ''))[:100]
     score = str(request.data.get('score', ''))[:10]

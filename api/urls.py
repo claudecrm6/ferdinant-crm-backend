@@ -10,6 +10,7 @@ from .views import (
     telegram_send_debt_warning,
     telegram_send_group_debt_warning, telegram_send_current_lesson_warning,
     telegram_send_quiz_result, telegram_send_certificate,
+    test_check_access,
 )
 
 router = DefaultRouter()
@@ -43,6 +44,9 @@ urlpatterns = [
     path('telegram/send-debt-warning/', telegram_send_debt_warning),
     path('telegram/send-group-debt-warning/', telegram_send_group_debt_warning),
     path('telegram/send-current-lesson-warning/', telegram_send_current_lesson_warning),
+
+    # Testga kirish — majburiy to'lov tekshiruvi (login talab qilinadi)
+    path('tests/check-access/', test_check_access),
 
     # Telegram — token talab qilmaydigan ochiq proxy'lar (test natijasi, sertifikat)
     path('telegram/send-quiz-result/', telegram_send_quiz_result),
