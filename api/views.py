@@ -210,7 +210,22 @@ class PaymentViewSet(viewsets.ModelViewSet):
             not student.group or student.group.user_id != user.id
         ):
             raise PermissionDenied("Bu o'quvchi sizga tegishli emas")
-        payment = serializer.save(owner=user)
+        # Bosqich (oraliq/yakuniy) va holat — faqat qayd uchun; Student
+        # qarzdorligi hisoblanishiga tegmaydi (u frontend + Student.save orqali).
+        extra = {}
+        if student:
+            vd = serializer.validated_data
+            if not vd.get('stage'):
+                previous = Payment.objects.filter(
+                    student=student, month=vd.get('month'), year=vd.get('year')
+                ).count()
+                extra['stage'] = Payment.STAGE_ORALIQ if previous == 0 else Payment.STAGE_YAKUNIY
+            extra['status'] = (
+                Payment.STATUS_PAID
+                if vd.get('amount', 0) >= (student.debt_amount or 0)
+                else Payment.STATUS_PARTIAL
+            )
+        payment = serializer.save(owner=user, **extra)
 
         student_name = payment.student_name_snapshot or (payment.student.name if payment.student else "-")
         notify_activity(

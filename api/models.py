@@ -101,6 +101,24 @@ class Payment(models.Model):
     year = models.IntegerField()
     date = models.CharField(max_length=20)
 
+    # ===== TO'LOV BOSQICHI (ORALIQ / YAKUNIY) =====
+    # Shu oy uchun o'quvchining birinchi to'lovi "oraliq", keyingisi "yakuniy".
+    # Bu maydonlar faqat qayd uchun — qarzdorlik hisobiga (Student) ta'sir qilmaydi.
+    STAGE_ORALIQ = 'oraliq'
+    STAGE_YAKUNIY = 'yakuniy'
+    STAGE_CHOICES = [
+        (STAGE_ORALIQ, 'Oraliq'),
+        (STAGE_YAKUNIY, 'Yakuniy'),
+    ]
+    STATUS_PARTIAL = 'partial'
+    STATUS_PAID = 'paid'
+    STATUS_CHOICES = [
+        (STATUS_PARTIAL, 'Qisman'),
+        (STATUS_PAID, "To'liq to'langan"),
+    ]
+    stage = models.CharField(max_length=10, choices=STAGE_CHOICES, blank=True, default='')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, blank=True, default='')
+
     def save(self, *args, **kwargs):
         if self.student and not self.student_name_snapshot:
             # Yangi to'lov yoki student hali mavjud bo'lgan holat — ismini "suratga olamiz"

@@ -24,7 +24,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = '__all__'
-        read_only_fields = ['owner']
+        read_only_fields = ['owner', 'status']
 
 
 class TrashSerializer(serializers.ModelSerializer):
