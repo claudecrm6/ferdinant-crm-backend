@@ -75,7 +75,7 @@ class Student(models.Model):
             self.payment_status = "debt"
 
         if not self.period:
-            self.period = timezone.now().strftime("%Y-%m")
+            self.period = timezone.localtime().strftime("%Y-%m")
 
         super().save(*args, **kwargs)
 

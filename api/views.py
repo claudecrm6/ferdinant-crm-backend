@@ -3,6 +3,7 @@ from django.conf import settings
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
 from django.utils.crypto import get_random_string
@@ -71,7 +72,7 @@ def ensure_monthly_reset():
     - Oldingi oyda TO'LANMAGAN qarz qolgan bo'lsa -> u YO'QOLMAYDI,
       joriy oy narxiga QO'SHILIB, yangi original_debt hosil qilinadi.
     """
-    current_period = timezone.now().strftime("%Y-%m")
+    current_period = timezone.localtime().strftime("%Y-%m")
     stale = Student.objects.exclude(period=current_period).select_related('group')
 
     for student in stale:
@@ -204,6 +205,11 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = get_user_from_token(self.request)
+        student = serializer.validated_data.get('student')
+        if student and not is_admin(user) and (
+            not student.group or student.group.user_id != user.id
+        ):
+            raise PermissionDenied("Bu o'quvchi sizga tegishli emas")
         payment = serializer.save(owner=user)
 
         student_name = payment.student_name_snapshot or (payment.student.name if payment.student else "-")
@@ -851,6 +857,10 @@ def telegram_send_group_debt_warning(request):
         group = Group.objects.get(pk=group_id)
     except Group.DoesNotExist:
         return Response({'error': "Bunday guruh topilmadi"}, status=404)
+
+    # Faqat guruh egasi yoki admin shu guruh uchun ogohlantirish yubora oladi
+    if not is_admin(user) and group.user_id != user.id:
+        return Response({'error': "Bu guruh sizga tegishli emas"}, status=403)
 
     debtors = list(Student.objects.filter(group=group, debt_amount__gt=0))
     if not debtors:
